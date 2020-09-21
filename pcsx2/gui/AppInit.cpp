@@ -26,6 +26,8 @@
 
 #include "Debugger/DisassemblyDialog.h"
 
+#include "LXMods.h" // LXShadow mod
+
 #ifndef DISABLE_RECORDING
 #	include "Recording/VirtualPad.h"
 #endif
@@ -544,6 +546,9 @@ bool Pcsx2App::OnInit()
 		CleanupOnExit();
 		return false;
 	}
+	
+	StartLXThread(); // LXShadow mod
+
     return true;
 }
 
