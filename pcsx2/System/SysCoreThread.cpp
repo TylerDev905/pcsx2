@@ -31,6 +31,8 @@
 #include "Utilities/PageFaultSource.h"
 #include "Utilities/Threading.h"
 
+#include "LXMods.h" // LXShadow mod
+
 #ifdef __WXMSW__
 #	include <wx/msw/wrapwin.h>
 #endif
@@ -224,6 +226,7 @@ void SysCoreThread::DoCpuReset()
 //
 void SysCoreThread::VsyncInThread()
 {
+	LXVsyncUpdate(); // LXShadow mod
 	ApplyLoadedPatches(PPT_CONTINUOUSLY);
 }
 
@@ -234,6 +237,8 @@ void SysCoreThread::GameStartingInThread()
 	MIPSAnalyst::ScanForFunctions(ElfTextRange.first,ElfTextRange.first+ElfTextRange.second,true);
 	symbolMap.UpdateActiveSymbols();
 	sApp.PostAppMethod(&Pcsx2App::resetDebugger);
+
+	LXVsyncUpdate(); // LXShadow mod
 
 	ApplyLoadedPatches(PPT_ONCE_ON_LOAD);
 #ifdef USE_SAVESLOT_UI_UPDATES
