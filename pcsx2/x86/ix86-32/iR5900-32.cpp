@@ -43,6 +43,8 @@
 #include "Utilities/MemsetFast.inl"
 #include "Utilities/Perf.h"
 
+#include "LXMods.h" // LXShadow mod
+
 
 using namespace x86Emitter;
 using namespace R5900;
@@ -110,7 +112,7 @@ static u32 dumplog = 0;
 #define dumplog 0
 #endif
 
-static void iBranchTest(u32 newpc = 0xffffffff);
+void iBranchTest(u32 newpc = 0xffffffff); // LXShadow mod: removed static
 static void ClearRecLUT(BASEBLOCK* base, int count);
 static u32 scaleblockcycles();
 
@@ -583,7 +585,7 @@ static void recAlloc()
 }
 
 static __aligned16 u16 manual_page[Ps2MemSize::MainRam >> 12];
-static __aligned16 u8 manual_counter[Ps2MemSize::MainRam >> 12];
+__aligned16 u8 manual_counter[Ps2MemSize::MainRam >> 12]; // LXShadow mod (non-static)
 
 static std::atomic<bool> eeRecIsReset(false);
 static std::atomic<bool> eeRecNeedsReset(false);
@@ -592,7 +594,7 @@ static bool g_resetEeScalingStats = false;
 static int g_patchesNeedRedo = 0;
 
 ////////////////////////////////////////////////////
-static void recResetRaw()
+void recResetRaw() // LXShadow mod: removed static
 {
 	Perf::ee.reset();
 
@@ -647,7 +649,7 @@ static void recShutdown()
 	Perf::dump();
 }
 
-static void recResetEE()
+void recResetEE() // LXShadow mod: removed static
 {
 	if (eeCpuExecuting)
 	{
@@ -1063,7 +1065,7 @@ u32 scaleblockcycles_clear()
 //   noDispatch - When set true, then jump to Dispatcher.  Used by the recs
 //   for blocks which perform exception checks without branching (it's enabled by
 //   setting "g_branch = 2";
-static void iBranchTest(u32 newpc)
+void iBranchTest(u32 newpc) // LXShadow mod: removed static
 {
 	// Check the Event scheduler if our "cycle target" has been reached.
 	// Equiv code to:
@@ -1390,15 +1392,59 @@ void recompileNextInstruction(int delayslot)
 	else {
 		//If the COP0 DIE bit is disabled, cycles should be doubled.
 		s_nBlockCycles += opcode.cycles * (2 - ((cpuRegs.CP0.n.Config >> 18) & 0x1));
-		try {
-			opcode.recompile();
-		} catch (Exception::FailedToAllocateRegister&) {
-			// Fall back to the interpreter
-			recCall(opcode.interpret);
+
+		// LXShadow mod start
+		bool gotBreakpoint = false;
+		if (internalBreakStatus == BREAK_RUNNING)
+		{
+			for (int i = 2; i < 12; i++)
+			{
+				if (lxBreakpoints[i] && pc - 4 == lxBreakpoints[i])
+					gotBreakpoint = true;
+			}
+		}
+		else if (internalBreakStatus == BREAK_GRANTINGREQUEST)
+		{
+			if (internalBreakRequest == BREAK_REQUESTSTEP)
+			{
+				if (pc - 4 != internalBreakPc)
+					gotBreakpoint = true;
+			}
+			else if (internalBreakRequest == BREAK_REQUESTCONTINUE)
+			{
+				if (pc - 4 == internalBreakPc)
+					internalBreakStatus = BREAK_RUNNING;
+			}
+		}
+
+		if (gotBreakpoint)
+		{
+			iFlushCall(FLUSH_EVERYTHING);
+			_flushCachedRegs();
+
+			xPUSH((u32)pc - 4);
+			xCALL(PCBreakpoint);
+			xADD(esp, 4);
+
+			SetBranchImm(pc - 4);
+		}
+		else
+		{
+			// LXShadow mod end
+
+			try
+			{
+				opcode.recompile();
+			}
+			catch (Exception::FailedToAllocateRegister&)
+			{
+				// Fall back to the interpreter
+				recCall(opcode.interpret);
 #if 0
 			// TODO: Free register ?
 			//	_freeXMMregs();
 #endif
+			}
 		}
 	}
 
