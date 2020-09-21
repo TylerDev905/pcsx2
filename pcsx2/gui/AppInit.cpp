@@ -28,6 +28,8 @@
 
 #include "LXMods.h" // LXShadow mod
 
+#include "../pcsx2dis/pcsx2dis/Main.h"
+
 #ifndef DISABLE_RECORDING
 #	include "Recording/VirtualPad.h"
 #endif
