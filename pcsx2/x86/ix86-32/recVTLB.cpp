@@ -23,6 +23,8 @@
 #include "iR5900.h"
 #include "Utilities/Perf.h"
 
+#include "LXMods.h" // LXShadow mod
+
 using namespace vtlb_private;
 using namespace x86Emitter;
 
@@ -148,6 +150,47 @@ static void iMOV64_Smart( const xIndirectVoid& destRm, const xIndirectVoid& srcR
 
 */
 
+// LXShadow mod start (defines)
+#define DATABREAKPOINT(breakId, address)               \
+	/*xPUSH(eax);*/                                    \
+	xMOV(eax, address);                                \
+	xSUB(eax, ptr32[&lxBreakpoints[breakId]]);         \
+	/*xCMP(ptr32[&lxBreakpoints[breakId]], address);*/ \
+	xCMP(eax, (bits >> 3));                            \
+	/*xPOP(eax);*/                                     \
+	xForwardJAE32 checkAddress;                        \
+                                                       \
+	xCMP(ptr32[&hitDataBreakpoint], pc - 4);           \
+	xForwardJE32 checkAlreadyHit;                      \
+                                                       \
+	/* Copy registers (todo: xmm mmx etc) */           \
+	xPUSH(eax);                                        \
+	for (int i = 0; i < 32; i++)                       \
+	{                                                  \
+		if (GPR_IS_CONST1(i))                          \
+		{                                              \
+			xMOV(eax, g_cpuConstRegs[i].UL[0]);        \
+			xMOV(ptr32[&cpuRegs.GPR.r[i].UL[0]], eax); \
+		}                                              \
+	}                                                  \
+	xPOP(eax);                                         \
+	xPUSH(pc - 4);                                     \
+	xPUSH(address);                                    \
+	xCALL(DataBreakpoint);                             \
+	xADD(esp, 8);                                      \
+                                                       \
+	/*iFlushCall(FLUSH_EVERYTHING);*/                  \
+	xMOV(ptr32[&cpuRegs.pc], pc - 4);                  \
+	iBranchTest(pc - 4);                               \
+                                                       \
+	checkAlreadyHit.SetTarget();                       \
+	xMOV(ptr32[&hitDataBreakpoint], 0xFFFFFFFF);       \
+                                                       \
+	checkAddress.SetTarget();
+// LXShadow mod end
+
+void iBranchTest(u32 newpc); // LXShadow mod
+
 namespace vtlb_private
 {
 	// ------------------------------------------------------------------------
@@ -171,6 +214,17 @@ namespace vtlb_private
 	// ------------------------------------------------------------------------
 	static void DynGen_DirectRead( u32 bits, bool sign )
 	{
+		// LXShadow mod start
+		//LXSHADOW_READ_BREAKPOINT(ecx, (u32) PSM(pc));
+		/*xCMP(ptr32[&lxBreakpoints[0]], ecx);
+		xJNE(x86Ptr + 0x10);
+		xPUSH(pc - 4);
+		xPUSH(ecx);
+		xCALL(ReadBreakpoint);
+		xADD(esp, 8);*/
+		DATABREAKPOINT(0, ecx);
+		// LXShadow mod end
+
 		switch( bits )
 		{
 			case 8:
@@ -206,6 +260,29 @@ namespace vtlb_private
 	// ------------------------------------------------------------------------
 	static void DynGen_DirectWrite( u32 bits )
 	{
+		// LXShadow mod start
+		/*xCMP(ptr32[&lxBreakpoints[1]], ecx);
+		xForwardJNE32 checkAddress;
+
+		xCMP(ptr32[&hitDataBreakpoint], pc - 4);
+		xForwardJE32 checkAlreadyHit;
+
+		xPUSH(pc - 4);
+		xPUSH(ecx);
+		xCALL(WriteBreakpoint);
+		xADD(esp, 8);
+
+		//iFlushCall(FLUSH_EVERYTHING);
+		xMOV(ptr32[&cpuRegs.pc], pc - 4);
+		iBranchTest(pc - 4);
+
+		checkAlreadyHit.SetTarget();
+		xMOV(ptr32[&hitDataBreakpoint], 0xFFFFFFFF);
+
+		checkAddress.SetTarget();*/
+		DATABREAKPOINT(1, ecx);
+		// LXShadow mod end
+
 		// TODO: x86Emitter can't use dil (and xRegister8(rdi.Id) is not dil)
 		switch(bits)
 		{
@@ -454,6 +531,18 @@ void vtlb_DynGenRead32_Const( u32 bits, bool sign, u32 addr_const )
 	if( !vmv.isHandler(addr_const) )
 	{
 		auto ppf = vmv.assumePtr(addr_const);
+
+		// LXShadow mod start
+		//LXSHADOW_READ_BREAKPOINT_CONST(ppf, (u32) PSM(pc));
+		/*xCMP(ptr32[&lxBreakpoints[0]], addr_const);
+		xJNE(x86Ptr + 0x14);
+		xPUSH(pc - 4);
+		xPUSH(addr_const);
+		xCALL(ReadBreakpoint);
+		xADD(esp, 8);*/
+		DATABREAKPOINT(0, (u32)ppf);
+		// LXShadow mod end
+
 		switch( bits )
 		{
 			case 8:
@@ -545,6 +634,11 @@ void vtlb_DynGenWrite_Const( u32 bits, u32 addr_const )
 	{
 		// TODO: x86Emitter can't use dil (and xRegister8(rdi.Id) is not dil)
 		auto ppf = vmv.assumePtr(addr_const);
+
+		// LXShadow mod start
+		DATABREAKPOINT(1, (u32)ppf);
+		// LXShadow mod end
+
 		switch(bits)
 		{
 			//8 , 16, 32 : data on arg2
