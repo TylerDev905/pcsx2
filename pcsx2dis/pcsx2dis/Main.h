@@ -10,7 +10,7 @@ typedef __int8  INT8;*/
 #endif
 
 //#undef _DLL
-
+#define _DLL
 #define VERSIONSTRING "1.1"
 #define DEFAULTWINDOWTITLE "PCSX2dis " VERSIONSTRING
 
