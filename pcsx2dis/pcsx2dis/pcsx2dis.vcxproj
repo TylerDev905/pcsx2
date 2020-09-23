@@ -119,6 +119,13 @@ powershell start-process "pcsx2.exe"</Command>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalOptions>/FORCE %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <PreBuildEvent>
+      <Command>ECHO "##########################################"
+ECHO "Execute pcsx2"
+ECHO "##########################################"
+cd ../../bin
+powershell start-process "pcsx2.exe"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
