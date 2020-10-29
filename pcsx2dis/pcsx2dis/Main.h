@@ -12,7 +12,7 @@ typedef __int8  INT8;*/
 //#undef _DLL
 #define _DLL
 #define VERSIONSTRING "2.0"
-#define DEFAULTWINDOWTITLE "PCSX2dis " VERSIONSTRING "- Updated by: Cronotrigga"
+#define DEFAULTWINDOWTITLE "PCSX2dis " VERSIONSTRING " - Updated by: Cronotrigga"
 
 #define DATATYPE_BYTE  1
 #define	DATATYPE_HWORD 2
